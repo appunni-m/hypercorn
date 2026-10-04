@@ -6,7 +6,7 @@ from aioquic.h3.connection import H3Connection
 from aioquic.h3.events import DataReceived, HeadersReceived
 from aioquic.h3.exceptions import NoAvailablePushIDError
 from aioquic.quic.connection import QuicConnection
-from aioquic.quic.events import ConnectionTerminated, QuicEvent, StreamReset
+from aioquic.quic.events import ConnectionTerminated, QuicEvent, StopSendingReceived, StreamReset
 
 from .events import (
     Body,
@@ -56,7 +56,7 @@ class H3Protocol:
             for stream_id in list(self.streams):
                 await self._close_stream(stream_id)
             return
-        elif isinstance(quic_event, StreamReset):
+        elif isinstance(quic_event, (StreamReset, StopSendingReceived)):
             await self._close_stream(quic_event.stream_id)
             return
 
@@ -99,7 +99,7 @@ class H3Protocol:
             self.connection.send_headers(event.stream_id, event.headers)
             await self.send()
         elif isinstance(event, StreamClosed):
-            self.streams.pop(event.stream_id, None)
+            await self._close_stream(event.stream_id)
         elif isinstance(event, Request):
             await self._create_server_push(event.stream_id, event.raw_path, event.headers)
 
